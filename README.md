@@ -58,6 +58,8 @@ Explicit deterministic rules transform models from CIM to PIM and from PIM to PS
 > [!NOTE]
 > In v1.4.1, LLM support is limited to PIM completeness analysis. Detected gaps trigger predefined questions and alternatives, but user decisions are not automatically incorporated or traced. PSM refinement is currently manual, and the resulting class diagram represents a preliminary system structure rather than a complete HQC software architecture.
 
+A compact specification of the currently defined mappings is available in [Transformation Rules](docs/transformation-rules.md).
+
 ---
 
 ### System Features
