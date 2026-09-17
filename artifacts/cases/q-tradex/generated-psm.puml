@@ -1,0 +1,23 @@
+@startuml
+class "CompareModels" as C1 {
+}
+note right of C1
+  actor: Q-TradeX
+end note
+class "ProvideQuantumPrediction" as C2 <<Quantum>> {
+  QuantumInput : String
+}
+note right of C2
+  mandatory: QuantumInput
+  actor: Quantum Module
+end note
+class "UnderstandModelPerformance" as C3 {
+  DefineExperiment() : void
+}
+note right of C3
+  mandatory: DefineExperiment
+  actor: User
+end note
+C1 ..> C2 : requires
+C3 ..> C1 : requires
+@enduml

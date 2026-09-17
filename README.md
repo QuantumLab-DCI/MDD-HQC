@@ -10,11 +10,11 @@
   </p>
   <p>
     <a href="#need-and-motivation">Need and Motivation</a> ·
-    <a href="#what-it-does">What It Does</a> ·
+    <a href="#transformation-pipeline">Transformation Pipeline</a> ·
     <a href="#system-features">System Features</a> ·
     <a href="#setup">Setup</a> ·
-    <a href="#transformation-pipeline">Transformation Pipeline</a> ·
     <a href="#illustrative-cases">Illustrative Cases</a> ·
+    <a href="#reproducibility">Reproducibility</a> ·
     <a href="#screenshots">Screenshots</a>
   </p>
 </div>
@@ -23,41 +23,40 @@
   <a href="http://200.13.5.22:3000/"><strong><font size="7">Open the Editor</font></strong></a>
 </p>
 
-> **Version:** v1.4.0<br>
-> **Status:** Functional Prototype  
-> **Research:** MDD-HQC was accepted at TLISC 2026, with related QuARC work accepted at Q-SET 2026.
+> **Version:** v1.4.1<br>
+> **Status:** Research Prototype<br>
+> **Research:** MDD-HQC-related works were accepted at CLEI TLISC 2026, the IEEE Quantum Week Q-SET 2026 Workshop, and the JCC 2026 QCQSE-Chile Workshop.
 
-**MDD-HQC** is a model-driven platform for supporting the design of hybrid quantum-classical systems. It provides a traceable transformation flow from **iStar 2.0** goal models to variability models written in **UVL** and **UML class diagrams** enriched with **QuantumUML** stereotypes. The platform also incorporates advisory **LLM support** to assist users during model refinement.
+**MDD-HQC** is a model-driven platform for supporting the design of hybrid quantum-classical systems. It provides a partially traceable transformation flow from **iStar 2.0** goal models to variability models written in **UVL** and preliminary **UML class diagrams** enriched with **QuantumUML** stereotypes. The platform also incorporates experimental human-in-the-loop assistance that combines LLM-based analysis with user decisions during model refinement.
 
 ---
 
 ### Need and Motivation
 
-**Hybrid quantum-classical (HQC) systems** combine classical and quantum components, assigning responsibilities to each computational paradigm according to the needs and constraints of the system.
+**Hybrid quantum-classical (HQC) systems** combine classical and quantum components according to the needs and constraints of the system. Their development involves more than selecting a quantum algorithm: engineers must determine **whether**, **where**, and **how** quantum components should be incorporated, considering algorithms, integration mechanisms, programming frameworks, providers, and hardware constraints.
 
-Their development involves more than selecting a quantum algorithm. Software engineers must determine **whether**, **where**, and **how** quantum components should be incorporated into a predominantly classical system. This requires decisions concerning algorithms, integration mechanisms, quantum providers, execution backends, programming frameworks, and hardware constraints.
-
-These decisions remain highly dependent on specialized knowledge and are often weakly connected to the original goals and requirements of the system. Without a structured development process, it becomes difficult to explain why quantum components were introduced and to trace how early requirements influenced subsequent design decisions.
-
-MDD-HQC addresses this problem by providing a systematic and traceable path from stakeholder goals to the preliminary structure of an HQC system.
+These decisions depend heavily on **specialized knowledge** and are often weakly connected to the original stakeholder goals and requirements. **MDD-HQC** addresses this problem by providing a systematic modeling workflow from stakeholder goals to a preliminary system structure, while maintaining **partial vertical traceability** across its modeling levels.
 
 ---
 
-### What It Does
+### Transformation Pipeline
 
-MDD-HQC supports the design of HQC systems through a **model-driven flow** organized into the **CIM**, **PIM**, and **PSM** abstraction levels.
+MDD-HQC organizes HQC design into three connected modeling levels:
 
-Starting from an **iStar 2.0** goal model, the platform applies explicit transformation rules to derive an HQC variability model written in **UVL**. This model captures relevant design alternatives and constraints. A selected configuration is then transformed into a **UML class diagram** enriched with **QuantumUML** stereotypes to represent the preliminary structure of the hybrid system.
+1. **CIM:** Stakeholder goals, needs, and dependencies represented with iStar 2.0.
+2. **PIM:** HQC variability, design alternatives, and constraints represented in UVL.
+3. **PSM:** A preliminary system structure represented through UML and QuantumUML.
 
-Each level progressively refines the same design problem and constrains the available solution space, while traceability metadata preserves the origin of the generated elements across transformations.
+Explicit deterministic rules transform models from CIM to PIM and from PIM to PSM. The workflow also considers semi-automated **human-in-the-loop** assistance at both transformation stages, combining LLM-based analysis with user decisions. The current rules preserve partial vertical traceability for some generated elements.
 
 <p align="center">
-  <img src="docs/images/layers.png" alt="MDD-HQC conceptual layers from CIM to PIM to preliminary HQC architecture" width="460">
+  <a href="docs/images/mdd-hqc-overview.svg">
+    <img src="docs/images/mdd-hqc-overview.svg" alt="MDD-HQC transformation overview, current capabilities, and future work" width="100%">
+  </a>
 </p>
 
-**LLM support** complements the deterministic transformation rules by identifying potentially missing, ambiguous, inconsistent, or misplaced information. Based on these findings, the LLM generates clarification questions and suggestions for the user.
-
-The LLM acts exclusively as an advisory mechanism: transformation decisions remain governed by explicit rules and user validation.
+> [!NOTE]
+> In v1.4.1, LLM support is limited to PIM completeness analysis. Detected gaps trigger predefined questions and alternatives, but user decisions are not automatically incorporated or traced. PSM refinement is currently manual, and the resulting class diagram represents a preliminary system structure rather than a complete HQC software architecture.
 
 ---
 
@@ -67,20 +66,22 @@ The following table summarizes the main capabilities included in or envisioned f
 
 > Status legend: ⬤ implemented, ◐ partial, ◯ not implemented.
 
-| Capability | Status |
-| --- | --- |
-| Goal-oriented modeling of HQC requirements | ⬤ |
-| Interview-based elicitation for CIM modeling | ◐ |
-| CIM model generation and interactive refinement | ◯ |
-| Rule-based CIM-to-PIM transformation | ⬤ |
-| Rule-based PIM-to-PSM transformation | ⬤ |
-| Bidirectional or multi-entry transformation flow | ◯ |
-| Variability modeling for HQC design decisions | ⬤ |
-| Vertical traceability across modeling levels | ⬤ |
-| Assessment of semantic preservation across transformations | ◯ |
-| Architecture-to-code generation | ◯ |
-| Project analysis from local folders or GitHub repositories | ◯ |
-| LLM-assisted detection of missing or inconsistent information | ◐ |
+| Capability                                                 | Status |
+| ---------------------------------------------------------- | ------ |
+| Goal-oriented modeling of HQC requirements                 | ⬤      |
+| Interview-based elicitation for CIM modeling               | ◯      |
+| CIM model generation and interactive refinement            | ◯      |
+| Rule-based CIM-to-PIM transformation                       | ◐      |
+| Rule-based PIM-to-PSM transformation                       | ◐      |
+| Bidirectional or multi-entry transformation flow           | ◯      |
+| Variability modeling for HQC design decisions              | ⬤      |
+| Vertical traceability across modeling levels               | ◐      |
+| Assessment of semantic preservation across transformations | ◯      |
+| LLM-assisted PIM completeness analysis                     | ◐      |
+| Automatic incorporation of user refinement decisions       | ◯      |
+| LLM-assisted PSM structural refinement                     | ◯      |
+| Architecture-to-code generation                            | ◯      |
+| Project analysis from local folders or GitHub repositories | ◯      |
 
 ---
 
@@ -98,8 +99,9 @@ The following tools must be installed before running the platform:
 #### Using Docker Compose
 
 1. **Clone the repository:**
+
    ```bash
-   git clone git@github.com:JessusTM/MDD-HQC.git
+   git clone https://github.com/QuantumLab-DCI/MDD-HQC.git
    cd MDD-HQC
    ```
 
@@ -127,9 +129,9 @@ The following tools must be installed before running the platform:
 
 5. **Access the application:**
 
-   * **Frontend:** [http://localhost:3000](http://localhost:3000)
-   * **Backend API:** [http://localhost:8000](http://localhost:8000)
-   * **API Documentation (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+   * **Frontend:** http://localhost:3000
+   * **Backend API:** http://localhost:8000
+   * **API Documentation (Swagger):** http://localhost:8000/docs
 
 6. **Stop the services:**
 
@@ -137,28 +139,11 @@ The following tools must be installed before running the platform:
    docker compose down
    ```
 
+> [!NOTE]
+> The deterministic transformations can be executed without enabling the LLM-assisted analysis. To use this experimental functionality, configure a supported provider and the corresponding credentials in the root `.env` file. The default configuration uses the `openrouter/free` alias with a temperature of `0.0`. This alias does not guarantee a fixed underlying model, and the specific model selected by OpenRouter is not currently recorded by the prototype.
+
 > [!CAUTION]
 > Ensure that ports 3000 and 8000 are available before starting the containers. If either port is already in use, its mapping can be changed in the `docker-compose.yml` file.
-
----
-
-### Transformation Pipeline
-
-MDD-HQC organizes the design process across three connected modeling levels:
-
-1. **CIM (Computation Independent Model):** Represents stakeholder goals, needs, intentions, and dependencies using iStar 2.0
-2. **PIM (Platform Independent Model):** Represents HQC variability, design alternatives, and constraints through an extended feature model written in UVL
-3. **PSM (Platform Specific Model):** Represents the preliminary structure of the HQC system through a UML class diagram enriched with QuantumUML stereotypes
-
-<p align="center">
-  <a href="docs/images/mdd-hqc-overview.svg">
-    <img src="docs/images/mdd-hqc-overview.svg" alt="MDD-HQC transformation overview, current capabilities, and future work" width="100%">
-  </a>
-</p>
-
-The current prototype applies explicit rules from goals to variability decisions and from selected decisions to a preliminary system structure. Rule-guided human–LLM assistance helps expose information gaps that cannot be resolved automatically, while controlled model updates and transformation traces remain under development.
-
-The resulting PSM is not yet a complete HQC architecture. Conversational goal-modeling assistance, structural consistency support, and specification-driven code generation remain future work.
 
 ---
 
@@ -186,10 +171,20 @@ The following cases demonstrate how MDD-HQC represents different hybrid quantum-
     </td>
     <td width="55%" valign="middle">
       <h4>Q-TradeX</h4>
-      <p>Hybrid BTC classification using classical models and a VQC on IBM Quantum.</p>
+      <p>A hybrid prediction scenario comparing classical logistic regression with a variational quantum classifier implemented using Qiskit.</p>
     </td>
   </tr>
 </table>
+
+---
+
+### Reproducibility
+
+The repository includes the input models and resulting artifacts for the **ChileEsPres** and **Q-TradeX** illustrative cases. The source CIM models can also be loaded directly from the **Examples** section of the user interface.
+
+The generated PIM and PSM artifacts are preserved under `artifacts/cases/`. For Q-TradeX, the repository additionally includes manually refined PIM and PSM models derived from the initial outputs produced by the deterministic transformation rules. These refined models are reference artifacts and are not automatically generated by the current prototype.
+
+Detailed instructions for executing the transformations, accessing the generated outputs, and reproducing the manual refinement workflow are available in [`docs/reproducibility.md`](docs/reproducibility.md).
 
 ---
 
@@ -210,21 +205,21 @@ The following cases demonstrate how MDD-HQC represents different hybrid quantum-
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/images/mdd-hqc-preparing-questions.png" alt="MDD-HQC preparing LLM-assisted guided questions" width="100%">
+      <img src="docs/images/mdd-hqc-preparing-questions.png" alt="MDD-HQC preparing guided questions after LLM-assisted completeness analysis" width="100%">
       <br>
       <sub>Preparing guided questions</sub>
     </td>
     <td width="50%" align="center">
-      <img src="docs/images/mdd-hqc-llm-guided-interaction.png" alt="LLM-assisted guided interaction in MDD-HQC" width="100%">
+      <img src="docs/images/mdd-hqc-llm-guided-interaction.png" alt="Predefined questions presented after LLM-assisted completeness analysis" width="100%">
       <br>
-      <sub>LLM-guided interaction</sub>
+      <sub>LLM-assisted guided interaction</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/images/mdd-hqc-incorporate-uvl-answers.png" alt="Visual review of proposed UVL changes based on guided answers" width="100%">
+      <img src="docs/images/mdd-hqc-incorporate-uvl-answers.png" alt="Prototype visualization of proposed UVL changes based on guided answers" width="100%">
       <br>
-      <sub>Proposed UVL integration</sub>
+      <sub>Prototype visualization of proposed UVL integration</sub>
     </td>
     <td width="50%" align="center">
       <img src="docs/images/mdd-hqc-transformation-workflow.png" alt="Model-driven transformation workflow in MDD-HQC" width="100%">
@@ -246,9 +241,9 @@ The following cases demonstrate how MDD-HQC represents different hybrid quantum-
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/images/mdd-hqc-psm-class-diagram.png" alt="Enlarged PSM class diagram in MDD-HQC" width="100%">
+      <img src="docs/images/mdd-hqc-psm-class-diagram.png" alt="Enlarged preliminary PSM class diagram in MDD-HQC" width="100%">
       <br>
-      <sub>Enlarged PSM class diagram</sub>
+      <sub>Enlarged preliminary PSM class diagram</sub>
     </td>
     <td width="50%" align="center"></td>
   </tr>
