@@ -1,0 +1,42 @@
+@startuml
+class "DetermineRequiredComputingType" as C1 {
+  GenerateRoutePlan() : void
+}
+note right of C1
+  mandatory: GenerateRoutePlan
+  actor: Route Planning System
+  GenerateRoutePlan(): mandatory: NationalMap, VehicleFleet, CurrentDemand
+end note
+class "ExecuteGraphAlgorithm" as C2 {
+  ClassicalComputer : String
+}
+note right of C2
+  mandatory: ClassicalComputer
+  actor: Route Planning System
+  contribution: hurt -> EfficientResourceUsage
+  contribution: hurt -> ComputationTime
+  contribution: break -> ScalabilityUnderHighDemand
+  contribution: make -> RoutePlanQuality
+end note
+class "ExecuteQuantumAnnealingAlgorithm" as C3 <<Quantum>> {
+  QuantumComputer : String
+  QuantumComputingInstance : String
+}
+note right of C3
+  mandatory: QuantumComputer, QuantumComputingInstance
+  actor: Quantum Module
+end note
+class "PerformDelivery" as C4 {
+}
+note right of C4
+  mandatory: fastDelivery "true", optimalResourceUsage "true"
+  actor: ChileEsPres
+end note
+class "PrepareAndRequestQuantumComputation" as C5 <<Quantum>> {
+}
+note right of C5
+  actor: Route Planning System
+end note
+C5 ..> C3 : requires
+C4 ..> C1 : requires
+@enduml

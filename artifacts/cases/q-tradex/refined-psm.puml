@@ -1,0 +1,103 @@
+@startuml
+
+top to bottom direction
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 20
+
+class "UnderstandModelPerformance" as C7 {
+  objective : String
+  assetPair : String
+  timeResolution : String
+  predictionHorizon : String
+  selectedFeatures : String[]
+
+  +defineExperiment()
+  +setComparisonObjective()
+  +requestModelComparison()
+}
+
+note top of C7
+  mandatory: DefineExperiment
+  actor: User
+end note
+
+class "CompareModels" as C1 {
+  classicalModel : String
+  quantumModel : String
+  comparisonProtocol : String
+  reportType : String
+
+  +runComparison()
+  +comparePredictions()
+  +generateReport()
+}
+
+note right of C1
+  actor: Q-TradeX
+end note
+
+class "LogisticRegression" as C4 {
+  regularization : String
+  probabilityThreshold : Float
+
+  +train()
+  +predictProbability()
+  +classifyMovement()
+}
+
+class "ProvideQuantumPrediction" as C6 {
+  quantumInput : Float[]
+  expectationValue : Float
+  predictedClass : Integer
+
+  +prepareQuantumInput()
+  +requestPrediction()
+  +mapExpectationToClass()
+}
+
+note left of C6
+  mandatory: QuantumInput
+  actor: Quantum Module
+end note
+
+class "VQC" as C8 <<Quantum>> {
+  qubitCount : Integer
+  featureMap : String
+  ansatzDepth : Integer
+  optimizer : String
+
+  +buildCircuit()
+  +trainParameters()
+  +predictProbability()
+}
+
+note left of C8
+  quantum_hw_constraint: NISQ
+  quantum_hw_constraint: FourQubits
+end note
+
+class "Middleware_API" as C5 <<QuantumDriver>> {
+  backend : String
+  executionMode : String
+  shots : Integer
+
+  +executeCircuit()
+  +retrieveResult()
+  +handleBackendError()
+}
+
+note left of C5
+  quantum_hw_constraint: NISQ
+  quantum_hw_constraint: FourQubits
+end note
+
+C7 -right-> C1 
+
+C1 -down-> C4
+C1 -down-> C6 
+
+C6 -down-> C8 
+C8 -down-> C5 
+
+@enduml
