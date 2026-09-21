@@ -1,23 +1,26 @@
 @startuml
 class "CompareModels" as C1 {
 }
-note right of C1
-  actor: Q-TradeX
-end note
-class "ProvideQuantumPrediction" as C2 <<Quantum>> {
-  QuantumInput : String
+class "LogisticRegression" as C2 {
 }
-note right of C2
-  mandatory: QuantumInput
-  actor: Quantum Module
-end note
-class "UnderstandModelPerformance" as C3 {
-  DefineExperiment() : void
+class "Middleware_API" as C3 <<QuantumDriver>> {
 }
 note right of C3
-  mandatory: DefineExperiment
-  actor: User
+  quantum_hw_constraint: NISQ
+  quantum_hw_constraint: FourQubits
 end note
-C1 ..> C2 : requires
-C3 ..> C1 : requires
+class "ProvideQuantumPrediction" as C4 {
+}
+class "UnderstandModelPerformance" as C5 {
+}
+class "VQC" as C6 <<Quantum>> {
+}
+note right of C6
+  quantum_hw_constraint: NISQ
+  quantum_hw_constraint: FourQubits
+end note
+C5 ..> C1 : requires
+C1 ..> C4 : requires
+C4 ..> C6 : requires
+C6 ..> C3 : requires
 @enduml
