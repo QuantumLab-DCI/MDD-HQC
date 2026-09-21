@@ -1,0 +1,37 @@
+features
+    Functionality
+        mandatory
+            # actor: User
+            UnderstandModelPerformance
+            {
+                kind "goal"
+            }
+                mandatory
+                    # actor: User
+                    DefineExperiment
+                    {
+                        kind "task"
+                    }
+            # actor: Q-TradeX
+            CompareModels
+            {
+                kind "goal"
+            }
+    Algorithm
+        Quantum
+            mandatory
+                # actor: Quantum Module
+                ProvideQuantumPrediction
+                {
+                    kind "task"
+                }
+                    mandatory
+                        # actor: Quantum Module
+                        QuantumInput
+                        {
+                            kind "resource"
+                        }
+
+constraints
+    CompareModels => ProvideQuantumPrediction
+    UnderstandModelPerformance => CompareModels

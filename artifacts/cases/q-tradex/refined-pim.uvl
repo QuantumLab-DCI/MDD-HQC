@@ -1,0 +1,32 @@
+features
+    Functionality
+        mandatory
+            UnderstandModelPerformance { kind "goal" } # actor: User
+                mandatory
+                    DefineExperiment { kind "task" }  # actor: User
+            CompareModels { kind "goal" } # actor: Q-TradeX
+            ProvideQuantumPrediction { kind "task" } # actor: Quantum Module
+                mandatory
+                    QuantumInput { kind "resource" }  # actor: Quantum Module
+    Algorithm
+        mandatory
+            Classical
+                LogisticRegression
+            Quantum
+                VQC
+    Programming
+        mandatory
+            Python
+            Qiskit
+    Integration_model
+        mandatory
+            Middleware_API
+    Quantum_HW_constraint
+        mandatory
+            NISQ
+            FourQubits
+constraints
+    UnderstandModelPerformance => CompareModels
+    CompareModels => ProvideQuantumPrediction          
+    ProvideQuantumPrediction => VQC
+    VQC => Middleware_API
