@@ -9,7 +9,9 @@ from app.services.interaction.contracts import InteractionInput, InteractionRepo
 from app.models.uvl import UVL
 from app.services.interaction.analyzers.uvl_completeness import UvlCompletenessAnalyzer
 from app.services.interaction.providers.factory import get_provider
-from app.services.interaction.questions import build_questions_from_missing
+from app.services.interaction.questions import build_questions_from_missing, generate_pim_to_psm_questions
+from app.services.interaction.analyzers.pim_to_psm_consistency import PimToPsmConsistencyAnalyzer
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,19 @@ def run_interaction(
 
     return InteractionReport(questions=questions, proposals=[])
 
+def run_pim_to_psm_interaction(payload: InteractionInput, provider: Optional[str] = None) -> InteractionReport:
+    llm_provider = get_provider(provider)
+    analyzer = PimToPsmConsistencyAnalyzer(llm_provider)
+    analysis = analyzer.analyze_psm(payload)
+
+    # Generar preguntas guiadas en base a los faltantes
+    questions = generate_pim_to_psm_questions(analysis)
+
+    return InteractionReport(
+        analysis=analysis,
+        questions=questions,
+        provider=provider or "default"
+    )
 
 def apply_user_answers(uvl: UVL, answers: Dict) -> str:
     """Placeholder kept for future UVL updates after the guided interaction step.
@@ -58,3 +73,16 @@ def apply_user_answers(uvl: UVL, answers: Dict) -> str:
     raise NotImplementedError(
         "Applying user answers back into the UVL is not implemented in this phase."
     )
+
+"""
+def apply_psm_answers(psm: PSM, answers: Dict) -> str:
+    
+    Placeholder kept for future PSM updates after the guided interaction step.
+
+    Applying user answers back into the generated PSM is intentionally left out of the
+    current phase, where the interaction module only analyzes artifacts.
+    
+    raise NotImplementedError(
+        "Applying user answers back into the PSM is not implemented in this phase."
+    )
+"""

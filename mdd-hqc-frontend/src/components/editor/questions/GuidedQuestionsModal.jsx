@@ -11,7 +11,7 @@ import { sendAnswers } from "../../../services/questions"
  * This component is used by the main application when guided interaction is available so
  * the user can review the generated questions in a dedicated modal view.
  */
-const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath }) => {
+const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath, interactionType }) => {
   const [answers, setAnswers] = useState({})
   const [submitStatus, setSubmitStatus] = useState("idle")
   const [submitError, setSubmitError] = useState("")
@@ -65,12 +65,12 @@ const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath 
             <path d="M7 17h3l2-4V7H7v6h2l-2 4zm7 0h3l2-4V7h-5v6h2l-2 4z" />
           </svg>
 
-          <h2 className="text-xl font-bold text-white">Guided Interaction: CIM to PIM</h2>
+          <h2 className="text-xl font-bold text-white">Guided Interaction: {interactionType}</h2>
         </div>
 
         <div className="bg-gray-900 p-4 mb-4 -mx-6 max-h-[420px] overflow-y-auto">
           <p className="text-gray-300">
-            Review the questions generated to inspect the semi-automatic transformation from <span className="font-bold text-blue-200">CIM to PIM</span>
+            Review the questions generated to inspect the semi-automatic transformation from <span className="font-bold text-blue-200">{interactionType}</span>
           </p>
 
           {questions.length === 0 ? (

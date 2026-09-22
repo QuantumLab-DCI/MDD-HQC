@@ -1,6 +1,6 @@
 """Shared contracts for interaction analysis inputs and outputs."""
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel
 
@@ -35,7 +35,7 @@ class InteractionQuestion(BaseModel):
     text: str
     scope: QuestionScope = "other"
     options: Optional[List[str]] = None
-    answers: Optional[str] = None
+    answers: Union[str, List[str], None] = None
 
 
 ProposalKind = Literal[

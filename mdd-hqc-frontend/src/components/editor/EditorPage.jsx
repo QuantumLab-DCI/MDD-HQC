@@ -14,8 +14,9 @@ import { PSM } from "./levels/PSM"
 import GuidedQuestionsModal from "./questions/GuidedQuestionsModal"
 import QuestionsModal from "./questions/QuestionsModal"
 import ModelIntegrationDiffModal from "./diff/ModelIntegrationDiffModal"
-import { transformCimToPim } from "../../services/transformations"
-import { fetchQuestions } from "../../services/questions"
+import { transformCimToPim, transformPimToPsm } from "../../services/transformations"
+import { fetchQuestions, fetchPimToPsmQuestions } from "../../services/questions"
+
 
 /**
  * Keeps the full editor workflow synchronized across uploads, transformations, and modals.
@@ -36,8 +37,10 @@ export const EditorPage = () => {
   const [selectedExample, setSelectedExample] = useState(null)
   const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false)
   const [questions, setQuestions] = useState([])
+  const [analysis, setAnalysis] = useState({})
   const [questionsStatus, setQuestionsStatus] = useState("idle")
   const [questionsError, setQuestionsError] = useState("")
+  const [interactionType, setInteractionType] = useState("CIM→PIM")
   const [isModelIntegrationModalOpen, setIsModelIntegrationModalOpen] = useState(false)
 
   /**
@@ -224,6 +227,32 @@ export const EditorPage = () => {
     }
   }, [isAiEnabled, questionsStatus])
 
+  const loadPimToPsmQuestions = useCallback(async (uvlPath, { openModal = false } = {}) => {
+  if (!uvlPath || !isAiEnabled) return
+
+  setQuestions([])
+  setQuestionsError("")
+  setQuestionsStatus("loading")
+  setIsQuestionsModalOpen(openModal)
+
+  try {
+    const data = await fetchPimToPsmQuestions(uvlPath)   // 
+
+    setQuestions(data.questions || [])
+    setAnalysis(data.analysis || null)   
+    setQuestionsStatus("ready")
+    setIsQuestionsModalOpen(true)
+  } catch (error) {
+    setQuestions([])
+    setQuestionsError(error.response?.data?.detail || "Unable to load guided questions. Please try again.")
+    setQuestionsStatus("error")
+    setIsQuestionsModalOpen(true)
+    console.error("Error fetching PIM→PSM questions:", error)
+  }
+}, [isAiEnabled])
+
+
+
   /**
    * Toggles AI assistance and clears guided-interaction state when disabling it.
    */
@@ -261,6 +290,7 @@ export const EditorPage = () => {
       handlePimTransformed(response)
 
       if (isAiEnabled && response.output_uvl_path) {
+        setInteractionType("CIM→PIM")
         void loadQuestionsForUvl(response.output_uvl_path, { openModal: true })
       }
     } finally {
@@ -269,6 +299,36 @@ export const EditorPage = () => {
       }
     }
   }, [handlePimTransformed, isAiEnabled, loadQuestionsForUvl, uploadedFilePath])
+
+  const runPimToPsmTransformation = useCallback(async () => {
+  if (!generatedUvlPath) return
+
+  transformAbortRef.current?.abort()
+  const controller = new AbortController()
+  const runId = ++interactionRunIdRef.current
+  transformAbortRef.current = controller
+
+  try {
+    console.log("Runner started, generatedUvlPath:", generatedUvlPath)
+    const response = await transformPimToPsm(generatedUvlPath, { signal: controller.signal })
+    console.log("Backend response:", response)
+    if (controller.signal.aborted || runId !== interactionRunIdRef.current) {
+      return
+    }
+
+    handlePsmTransformed(response)
+
+    if (isAiEnabled && response.input_uvl) {
+      setInteractionType("PIM→PSM")
+      void loadPimToPsmQuestions(response.input_uvl, { openModal: true })
+    }
+  } finally {
+    if (transformAbortRef.current === controller) {
+      transformAbortRef.current = null
+    }
+  }
+}, [handlePsmTransformed, isAiEnabled, loadPimToPsmQuestions, generatedUvlPath])
+
 
   /**
    * Opens the guided-questions modal with the latest available state.
@@ -307,10 +367,25 @@ export const EditorPage = () => {
   /**
    * Renders the interaction button displayed between editor stages.
    */
-  const renderInteractionButton = ({ interactive = false }) => {
+  const renderInteractionButton = ({ interactive = false, interactionType }) => {
     const isLoadingQuestions = interactive && questionsStatus === "loading"
     const isDisabled = interactive ? !generatedUvlPath || !isAiEnabled : true
-    const handleClick = interactive ? openQuestionsModal : undefined
+    const handleClick = interactive
+    ? () => {
+        setInteractionType(interactionType)
+        setIsQuestionsModalOpen(true)
+
+        if (interactionType === "CIM→PIM") {
+          void loadQuestionsForUvl(generatedUvlPath, { openModal: true })
+          setIsModelIntegrationModalOpen(true)   
+        }
+
+        if (interactionType === "PIM→PSM") {
+          void loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
+          
+        }
+      }
+    : undefined
 
     return (
       <button
@@ -375,7 +450,7 @@ export const EditorPage = () => {
             generatedUvlPath={generatedUvlPath}
             uvlContent={uvlContent}
             onTransformCimToPim={runCimToPimTransformation}
-            onTransformPimToPsm={handlePsmTransformed}
+            onTransformPimToPsm={runPimToPsmTransformation}
           />
         </div>
 
@@ -391,7 +466,7 @@ export const EditorPage = () => {
           </div>
 
           <div className="flex flex-col items-center justify-center">
-            {renderInteractionButton({ interactive: true })}
+            {renderInteractionButton({ interactive: true, interactionType: "CIM→PIM" })}
           </div>
 
           {questionsStatus === "ready" ? (
@@ -401,6 +476,7 @@ export const EditorPage = () => {
               questions={questions}
               onContinue={handleContinueWithQuestions}
               uvlPath={generatedUvlPath}
+              interactionType={interactionType}
             />
           ) : (
             <QuestionsModal isOpen={isQuestionsModalOpen} onClose={handleQuestionsModalClose}>
@@ -452,7 +528,7 @@ export const EditorPage = () => {
           </div>
 
           <div className="flex flex-col items-center justify-center">
-            {renderInteractionButton({ interactive: false })}
+            {renderInteractionButton({ interactive: true, interactionType: "PIM→PSM" })}
           </div>
 
           <div className="h-full">

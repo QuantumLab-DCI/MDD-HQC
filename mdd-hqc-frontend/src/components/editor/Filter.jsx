@@ -4,7 +4,6 @@
 
 import { Settings2, ArrowRight, Play } from "lucide-react"
 import { useState } from "react"
-import { transformPimToPsm } from "../../services/transformations"
 
 /**
  * Displays the transformation selector and triggers the next valid backend step.
@@ -46,8 +45,8 @@ export const Filter = ({
           alert("You must complete the CIM -> PIM transformation first")
           return
         }
-        const response = await transformPimToPsm(generatedUvlPath)
-        onTransformPimToPsm?.(response)
+        console.log("Calling PIM→PSM with:", { uvlContent, generatedUvlPath })
+        await onTransformPimToPsm?.()
       }
     } catch (error) {
       console.error("Transformation error:", error)
