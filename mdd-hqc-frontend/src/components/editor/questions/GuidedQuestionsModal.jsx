@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { sendAnswers } from "../../../services/questions"
+import { sendAnswers, sendPimToPsmAnswers } from "../../../services/questions"
 
 /**
  * Displays the prepared questions generated after the CIM-to-PIM step.
@@ -26,21 +26,39 @@ const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath,
     setAnswers((currentAnswers) => ({ ...currentAnswers, [questionId]: option }))
   }
 
-  const handleSubmit = async () => {
-    if (!uvlPath || submitStatus === "loading") return
+ const handleSubmit = async () => {
+    if (!uvlPath || submitStatus === "loading") return;
 
-    setSubmitStatus("loading")
-    setSubmitError("")
+    setSubmitStatus("loading");
+    setSubmitError("");
 
     try {
-      const result = await sendAnswers(uvlPath, answers)
-      setSubmitStatus("idle")
-      onContinue(result)
+      let result;
+      if (interactionType === "PIM→PSM") {
+        result = await sendPimToPsmAnswers(uvlPath, answers);
+      } else {
+        result = await sendAnswers(uvlPath, answers);
+      }
+
+      // Si el backend devuelve un mensaje de error en el JSON
+      if (result?.detail && typeof result.detail === "string" && result.detail.toLowerCase().startsWith("error")) {
+        throw new Error(result.detail);
+      }
+
+      setSubmitStatus("idle");
+
+      // Le pasamos result e interactionType a la función de callback
+      if (typeof onContinue === "function") {
+        onContinue(result, interactionType);
+      }
     } catch (error) {
-      setSubmitStatus("error")
-      setSubmitError(error.response?.data?.detail || "Unable to submit answers. Please try again.")
+      console.error("Error en submit de preguntas:", error);
+      setSubmitStatus("error");
+      setSubmitError(
+        error.response?.data?.detail || error.message || "Unable to submit answers. Please try again."
+      );
     }
-  }
+  };
 
   if (!isOpen) return null
 

@@ -74,15 +74,13 @@ def apply_user_answers(uvl: UVL, answers: Dict) -> str:
         "Applying user answers back into the UVL is not implemented in this phase."
     )
 
-"""
-def apply_psm_answers(psm: PSM, answers: Dict) -> str:
-    
-    Placeholder kept for future PSM updates after the guided interaction step.
 
-    Applying user answers back into the generated PSM is intentionally left out of the
-    current phase, where the interaction module only analyzes artifacts.
-    
-    raise NotImplementedError(
-        "Applying user answers back into the PSM is not implemented in this phase."
-    )
-"""
+def apply_psm_answers(path: str, answers: dict) -> dict:
+    """Mock temporal para la fase PIM->PSM que simula la recepción exitosa de respuestas."""
+    logger.info("Respuestas PIM->PSM recibidas para %s: %s", path, answers)
+    return {
+        "status": "success",
+        "message": "Answers accepted temporarily without modifying the model",
+        "path": path,
+        "answers": answers
+    }
