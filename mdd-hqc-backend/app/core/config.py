@@ -24,6 +24,10 @@ class Config(BaseSettings):
     OLLAMA_MODEL: str = "mistral:latest"
     LMSTUDIO_URL: str = "http://localhost:1234/v1/completions"
     LMSTUDIO_MODEL: str = "Meta-Llama-3-8B-Instruct"
+    OPENAI_API_KEY: str = ""
+    OPENAI_URL: str = "https://api.openai.com/v1/chat/completions"
+    OPENAI_MODEL: str = "gpt-5.6-sol"
+    OPENAI_REASONING_EFFORT: str = "medium"
 
     @property
     def cors_origins(self) -> list[str]:
