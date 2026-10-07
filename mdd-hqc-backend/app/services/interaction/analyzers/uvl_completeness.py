@@ -20,15 +20,15 @@ HQC_EXTENDED_FEATURE_MODEL = [
 
 PROMPT_TEMPLATE = """
 Analiza el siguiente modelo UVL y responde SOLO con un JSON valido con las claves exactas:
-Functionality, Algorithm, Programming, Integration_model, Quantum_HW_constraint, missing.
+Functionality, Algorithm, Programming, Integration_model, Quantum_HW_constraint, missing, questions.
 
-No uses otras claves como questions o proposals.
 No incluyas explicaciones, comentarios ni texto adicional fuera del JSON.
 
 Objetivo del analisis:
 - Revisar solo la completitud de los grupos principales del modelo de caracteristicas extendido para sistemas hibridos cuantico-clasicos.
 - Determinar si el UVL contiene evidencia suficiente de los grupos principales: Functionality, Algorithm, Programming, Integration_model y Quantum_HW_constraint.
 - Si no hay evidencia textual de un grupo principal en el UVL, marca false y agregalo a missing.
+- Para CADA grupo que este en false (faltante), genera dinámicamente una pregunta guiada clara con opciones sugeridas según el dominio para ayudar al usuario a tomar decisiones de diseño.
 
 Reglas de interpretacion:
 - Functionality=true si existe evidencia del grupo Functionality en el UVL.
@@ -37,6 +37,7 @@ Reglas de interpretacion:
 - Integration_model=true si existe evidencia del grupo Integration_model en el UVL.
 - Quantum_HW_constraint=true si existe evidencia del grupo Quantum_HW_constraint en el UVL.
 - missing debe contener TODAS las claves anteriores que esten en false.
+- questions debe ser una lista de objetos con id, text, scope="missing_information" y options (lista de sugerencias de respuesta).
 
 Formato de salida:
 {{
@@ -45,7 +46,15 @@ Formato de salida:
   "Programming": true|false,
   "Integration_model": true|false,
   "Quantum_HW_constraint": true|false,
-  "missing": ["..."]
+  "missing": ["..."],
+  "questions": [
+    {{
+      "id": "q_algorithm",
+      "text": "¿Qué tipo de algoritmo se utilizará?",
+      "scope": "missing_information",
+      "options": ["Quantum Search", "Dynamic Programming", "Greedy", "Otro"]
+    }}
+  ]
 }}
 
 UVL a analizar:
@@ -97,6 +106,11 @@ class UvlCompletenessAnalyzer:
         result["missing"] = missing if isinstance(missing, list) else []
         if not result["missing"]:
             result["missing"] = self._collect_missing_groups(result)
+
+        # Preservar las preguntas y opciones generadas dinámicamente por el LLM
+        questions = parsed.get("questions", [])
+        result["questions"] = questions if isinstance(questions, list) else []
+
         logger.debug("Normalized UVL completeness analysis result: %s", result)
         return result
 

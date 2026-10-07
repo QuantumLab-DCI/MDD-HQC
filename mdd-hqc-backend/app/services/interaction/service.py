@@ -9,7 +9,7 @@ from app.services.interaction.contracts import InteractionInput, InteractionRepo
 from app.models.uvl import UVL
 from app.services.interaction.analyzers.uvl_completeness import UvlCompletenessAnalyzer
 from app.services.interaction.providers.factory import get_provider
-from app.services.interaction.questions import build_questions_from_missing, generate_pim_to_psm_questions
+from app.services.interaction.questions import build_questions_from_missing, generate_pim_to_psm_questions, parse_llm_questions
 from app.services.interaction.analyzers.pim_to_psm_consistency import PimToPsmConsistencyAnalyzer
 
 
@@ -23,11 +23,8 @@ cancellation_context: ContextVar[Event | None] = ContextVar(
 def run_interaction(
     payload: InteractionInput, provider: Optional[str] = None
 ) -> InteractionReport:
-    """Runs the UVL interaction analysis with the selected provider and returns its report.
-
-    This helper keeps provider selection, UVL analysis, and question generation in one
-    shared entry point used by the API layer.
-    """
+    """Runs the UVL interaction analysis with the selected provider and returns its report."""
+    
     cancellation_event = cancellation_context.get()
     if cancellation_event and cancellation_event.is_set():
         raise RuntimeError("Operation cancelled by user.")
@@ -39,7 +36,13 @@ def run_interaction(
     if cancellation_event and cancellation_event.is_set():
         raise RuntimeError("Operation cancelled by user.")
 
-    questions = build_questions_from_missing(analysis.get("missing", []))
+    # 1. Intentar obtener las preguntas generadas dinámicamente por la IA
+    raw_questions = analysis.get("questions", [])
+    if raw_questions:
+        questions = parse_llm_questions(raw_questions)
+    else:
+        # Fallback de respaldo en caso de que la respuesta del LLM venga sin el campo 'questions'
+        questions = build_questions_from_missing(analysis.get("missing", []))
 
     logger.debug("Interaction analysis result: %s", analysis)
     logger.info(
