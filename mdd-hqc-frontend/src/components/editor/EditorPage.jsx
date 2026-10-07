@@ -14,8 +14,9 @@ import { PSM } from "./levels/PSM"
 import GuidedQuestionsModal from "./questions/GuidedQuestionsModal"
 import QuestionsModal from "./questions/QuestionsModal"
 import ModelIntegrationDiffModal from "./diff/ModelIntegrationDiffModal"
-import { transformCimToPim } from "../../services/transformations"
-import { fetchQuestions } from "../../services/questions"
+import { transformCimToPim, transformPimToPsm } from "../../services/transformations"
+import { fetchQuestions, fetchPimToPsmQuestions } from "../../services/questions"
+
 
 /**
  * Keeps the full editor workflow synchronized across uploads, transformations, and modals.
@@ -34,20 +35,33 @@ export const EditorPage = () => {
   const [pumlContent, setPumlContent] = useState(null)
   const [isExamplesOpen, setIsExamplesOpen] = useState(false)
   const [selectedExample, setSelectedExample] = useState(null)
-  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false)
-  const [questions, setQuestions] = useState([])
+  const [isCimPimModalOpen, setIsCimPimModalOpen] = useState(false)
+  const [cimPimQuestions, setCimPimQuestions] = useState([])
+  const [cimPimStatus, setCimPimStatus] = useState("idle")
+  const [cimPimError, setCimPimError] = useState("")
+  const [isPimPsmModalOpen, setIsPimPsmModalOpen] = useState(false)
+  const [pimPsmQuestions, setPimPsmQuestions] = useState([])
+  const [pimPsmStatus, setPimPsmStatus] = useState("idle")
+  const [pimPsmError, setPimPsmError] = useState("")
+  const [analysis, setAnalysis] = useState({})
   const [questionsStatus, setQuestionsStatus] = useState("idle")
   const [questionsError, setQuestionsError] = useState("")
+  const [interactionType, setInteractionType] = useState("CIM→PIM")
   const [isModelIntegrationModalOpen, setIsModelIntegrationModalOpen] = useState(false)
 
   /**
    * Clears the guided-interaction state kept after UVL generation.
    */
   const resetInteractionState = useCallback(() => {
-    setQuestions([])
-    setQuestionsStatus("idle")
-    setQuestionsError("")
-    setIsQuestionsModalOpen(false)
+    setCimPimQuestions([])
+    setCimPimStatus("idle")
+    setCimPimError("")
+    setIsCimPimModalOpen(false)
+
+    setPimPsmQuestions([])
+    setPimPsmStatus("idle")
+    setPimPsmError("")
+    setIsPimPsmModalOpen(false)
     setIsModelIntegrationModalOpen(false)
   }, [])
 
@@ -179,17 +193,17 @@ export const EditorPage = () => {
   const loadQuestionsForUvl = useCallback(async (uvlPath, { openModal = false } = {}) => {
     if (!uvlPath || !isAiEnabled) return
 
-    if (questionsStatus === "loading") {
+    if (cimPimStatus === "loading") {
       if (openModal) {
-        setIsQuestionsModalOpen(true)
+        setIsCimPimModalOpen(true)
       }
       return
     }
 
-    setQuestions([])
-    setQuestionsError("")
-    setQuestionsStatus("loading")
-    setIsQuestionsModalOpen(openModal)
+    setCimPimQuestions([])
+    setCimPimError("")
+    setCimPimStatus("loading")
+    setIsCimPimModalOpen(openModal)
     let controller = null
 
     try {
@@ -204,18 +218,18 @@ export const EditorPage = () => {
         return
       }
 
-      setQuestions(qs)
-      setQuestionsStatus("ready")
-      setIsQuestionsModalOpen(true)
+      setCimPimQuestions(qs)
+      setCimPimStatus("ready")
+      setIsCimPimModalOpen(true)
     } catch (error) {
       if (axios.isCancel(error) || error.code === "ERR_CANCELED") {
         return
       }
 
-      setQuestions([])
-      setQuestionsError(error.response?.data?.detail || "Unable to load guided questions. Please try again.")
-      setQuestionsStatus("error")
-      setIsQuestionsModalOpen(true)
+      setCimPimQuestions([])
+      setCimPimError(error.response?.data?.detail || "Unable to load guided questions. Please try again.")
+      setCimPimStatus("error")
+      setIsCimPimModalOpen(true)
       console.error("Error fetching questions:", error)
     } finally {
       if (questionsAbortRef.current === controller) {
@@ -223,6 +237,32 @@ export const EditorPage = () => {
       }
     }
   }, [isAiEnabled, questionsStatus])
+
+  const loadPimToPsmQuestions = useCallback(async (uvlPath, { openModal = false } = {}) => {
+  if (!uvlPath || !isAiEnabled) return
+
+  setPimPsmQuestions([])
+  setPimPsmError("")
+  setPimPsmStatus("loading")
+  setIsPimPsmModalOpen(openModal)
+
+  try {
+    const data = await fetchPimToPsmQuestions(uvlPath)   // 
+
+    setPimPsmQuestions(data.questions || [])
+    setAnalysis(data.analysis || null)   
+    setPimPsmStatus("ready")
+    setIsPimPsmModalOpen(true)
+  } catch (error) {
+    setPimPsmQuestions([])
+    setPimPsmError(error.response?.data?.detail || "Unable to load guided questions. Please try again.")
+    setPimPsmError("error")
+    setIsPimPsmModalOpen(true)
+    console.error("Error fetching PIM→PSM questions:", error)
+  }
+}, [isAiEnabled])
+
+
 
   /**
    * Toggles AI assistance and clears guided-interaction state when disabling it.
@@ -261,6 +301,7 @@ export const EditorPage = () => {
       handlePimTransformed(response)
 
       if (isAiEnabled && response.output_uvl_path) {
+        setInteractionType("CIM→PIM")
         void loadQuestionsForUvl(response.output_uvl_path, { openModal: true })
       }
     } finally {
@@ -270,47 +311,119 @@ export const EditorPage = () => {
     }
   }, [handlePimTransformed, isAiEnabled, loadQuestionsForUvl, uploadedFilePath])
 
+  const runPimToPsmTransformation = useCallback(async () => {
+  if (!generatedUvlPath) return
+
+  transformAbortRef.current?.abort()
+  const controller = new AbortController()
+  const runId = ++interactionRunIdRef.current
+  transformAbortRef.current = controller
+
+  try {
+    console.log("Runner started, generatedUvlPath:", generatedUvlPath)
+    const response = await transformPimToPsm(generatedUvlPath, { signal: controller.signal })
+    console.log("Backend response:", response)
+    if (controller.signal.aborted || runId !== interactionRunIdRef.current) {
+      return
+    }
+
+    handlePsmTransformed(response)
+
+    if (isAiEnabled && response.input_uvl) {
+      setInteractionType("PIM→PSM")
+      void loadPimToPsmQuestions(response.input_uvl, { openModal: true })
+    }
+  } finally {
+    if (transformAbortRef.current === controller) {
+      transformAbortRef.current = null
+    }
+  }
+}, [handlePsmTransformed, isAiEnabled, loadPimToPsmQuestions, generatedUvlPath])
+
+
   /**
    * Opens the guided-questions modal with the latest available state.
    */
   const openQuestionsModal = async () => {
-    if (!generatedUvlPath || !isAiEnabled) return
+  if (!generatedUvlPath || !isAiEnabled) return
 
-    if (questionsStatus === "loading" || questionsStatus === "error") {
-      setIsQuestionsModalOpen(true)
+  if (interactionType === "CIM→PIM") {
+    if (cimPimStatus === "loading" || cimPimStatus === "error") {
+      setIsCimPimModalOpen(true)
       return
     }
-
-    if (questionsStatus === "ready" && questions.length > 0) {
-      setIsQuestionsModalOpen(true)
+    if (cimPimStatus === "ready" && cimPimQuestions.length > 0) {
+      setIsCimPimModalOpen(true)
       return
     }
-
     await loadQuestionsForUvl(generatedUvlPath, { openModal: true })
   }
+
+  if (interactionType === "PIM→PSM") {
+    if (pimPsmStatus === "loading" || pimPsmStatus === "error") {
+      setIsPimPsmModalOpen(true)
+      return
+    }
+    if (pimPsmStatus === "ready" && pimPsmQuestions.length > 0) {
+      setIsPimPsmModalOpen(true)
+      return
+    }
+    await loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
+  }
+}
 
   /**
    * Closes the guided-questions modal.
    */
   const handleQuestionsModalClose = () => {
-    setIsQuestionsModalOpen(false)
+  if (interactionType === "CIM→PIM") {
+    setIsCimPimModalOpen(false)
   }
+  if (interactionType === "PIM→PSM") {
+    setIsPimPsmModalOpen(false)
+  }
+}
 
   /**
    * Closes the guided-questions modal after the user continues.
    */
-  const handleContinueWithQuestions = () => {
-    setIsQuestionsModalOpen(false)
-    setIsModelIntegrationModalOpen(true)
+  const handleContinueWithQuestions = (result, type) => {
+  // Evaluamos el 'type' que nos envía explícitamente el GuidedQuestionsModal
+  const currentType = type || interactionType;
+
+  if (currentType === "CIM→PIM") {
+    setIsCimPimModalOpen(false);
+    setIsModelIntegrationModalOpen(true);
+  } else if (currentType === "PIM→PSM") {
+    setIsPimPsmModalOpen(false); // Cierra el modal de PIM->PSM
   }
+};
 
   /**
    * Renders the interaction button displayed between editor stages.
    */
-  const renderInteractionButton = ({ interactive = false }) => {
-    const isLoadingQuestions = interactive && questionsStatus === "loading"
+  const renderInteractionButton = ({ interactive = false, interactionType }) => {
+    const isLoadingQuestions = interactive &&
+    ((interactionType === "CIM→PIM" && cimPimStatus === "loading") ||
+     (interactionType === "PIM→PSM" && pimPsmStatus === "loading"))
     const isDisabled = interactive ? !generatedUvlPath || !isAiEnabled : true
-    const handleClick = interactive ? openQuestionsModal : undefined
+    const handleClick = interactive
+    ? () => {
+        setInteractionType(interactionType)
+
+        if (interactionType === "CIM→PIM") {
+          setIsCimPimModalOpen(true)
+          void loadQuestionsForUvl(generatedUvlPath, { openModal: true })
+          setIsModelIntegrationModalOpen(true)   
+        }
+
+        if (interactionType === "PIM→PSM") {
+          setIsPimPsmModalOpen(true)
+          void loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
+          
+        }
+      }
+    : undefined
 
     return (
       <button
@@ -375,7 +488,7 @@ export const EditorPage = () => {
             generatedUvlPath={generatedUvlPath}
             uvlContent={uvlContent}
             onTransformCimToPim={runCimToPimTransformation}
-            onTransformPimToPsm={handlePsmTransformed}
+            onTransformPimToPsm={runPimToPsmTransformation}
           />
         </div>
 
@@ -391,20 +504,21 @@ export const EditorPage = () => {
           </div>
 
           <div className="flex flex-col items-center justify-center">
-            {renderInteractionButton({ interactive: true })}
+            {renderInteractionButton({ interactive: true, interactionType: "CIM→PIM" })}
           </div>
 
-          {questionsStatus === "ready" ? (
+          {cimPimStatus === "ready" ? (
             <GuidedQuestionsModal
-              isOpen={isQuestionsModalOpen}
+              isOpen={isCimPimModalOpen}
               onClose={handleQuestionsModalClose}
-              questions={questions}
+              questions={cimPimQuestions}
               onContinue={handleContinueWithQuestions}
               uvlPath={generatedUvlPath}
+              interactionType="CIM→PIM"
             />
           ) : (
-            <QuestionsModal isOpen={isQuestionsModalOpen} onClose={handleQuestionsModalClose}>
-              {questionsStatus === "loading" ? (
+            <QuestionsModal isOpen={isCimPimModalOpen} onClose={handleQuestionsModalClose}>
+              {cimPimStatus === "loading" ? (
                 <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
                   <div className="mb-5 rounded-full border border-ctp-blue/30 bg-ctp-blue/10 p-4 text-ctp-blue">
                     <Loader2 className="h-10 w-10 animate-spin" />
@@ -414,7 +528,7 @@ export const EditorPage = () => {
                     You can close this window while we prepare them. It will reopen automatically when the questions are ready.
                   </p>
                 </div>
-              ) : questionsStatus === "error" ? (
+              ) : cimPimStatus === "error" ? (
                 <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
                   <div className="mb-5 rounded-full border border-ctp-red/30 bg-ctp-red/10 p-4 text-ctp-red">
                     <TriangleAlert className="h-10 w-10" />
@@ -452,8 +566,57 @@ export const EditorPage = () => {
           </div>
 
           <div className="flex flex-col items-center justify-center">
-            {renderInteractionButton({ interactive: false })}
+            {renderInteractionButton({ interactive: true, interactionType: "PIM→PSM" })}
           </div>
+
+          {pimPsmStatus === "ready" ? (
+      <GuidedQuestionsModal
+        isOpen={isPimPsmModalOpen}
+        onClose={handleQuestionsModalClose}
+        questions={pimPsmQuestions}
+        onContinue={handleContinueWithQuestions}
+        uvlPath={generatedUvlPath}
+        interactionType="PIM→PSM"
+      />
+  ) : (
+        <QuestionsModal isOpen={isPimPsmModalOpen} onClose={handleQuestionsModalClose}>
+          {pimPsmStatus === "loading" ? (
+            <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+              <div className="mb-5 rounded-full border border-ctp-blue/30 bg-ctp-blue/10 p-4 text-ctp-blue">
+                <Loader2 className="h-10 w-10 animate-spin" />
+              </div>
+              <h2 className="text-2xl font-bold text-ctp-text">Preparing guided questions</h2>
+              <p className="mt-3 max-w-md text-base text-[#a0988c]">
+                You can close this window while we prepare them. It will reopen automatically when the questions are ready.
+              </p>
+            </div>
+          ) : pimPsmStatus === "error" ? (
+            <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+              <div className="mb-5 rounded-full border border-ctp-red/30 bg-ctp-red/10 p-4 text-ctp-red">
+                <TriangleAlert className="h-10 w-10" />
+              </div>
+              <h2 className="text-2xl font-bold text-ctp-text">Unable to load guided questions</h2>
+              <p className="mt-3 max-w-md text-base text-[#a0988c]">{pimPsmError}</p>
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleQuestionsModalClose}
+                  className="rounded-lg border border-ctp-surface1 bg-ctp-surface0 px-4 py-2 font-semibold text-ctp-text transition-colors hover:bg-ctp-surface1"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={openQuestionsModal}
+                  className="rounded-lg bg-ctp-mauve px-4 py-2 font-semibold text-ctp-base transition-colors hover:bg-ctp-pink"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </QuestionsModal>
+    )}
 
           <div className="h-full">
             <PSM
@@ -465,7 +628,7 @@ export const EditorPage = () => {
         </div>
 
         <ModelIntegrationDiffModal
-          isOpen={isModelIntegrationModalOpen}
+          isOpen={interactionType === "CIM→PIM" && isModelIntegrationModalOpen}
           onClose={() => setIsModelIntegrationModalOpen(false)}
         />
       </main>

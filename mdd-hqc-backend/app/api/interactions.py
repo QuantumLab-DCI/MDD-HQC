@@ -12,8 +12,10 @@ from app.services.interaction.contracts import InteractionInput, InteractionRepo
 from app.services.artifacts.uvl_service import UvlService
 from app.services.interaction.security import security_shield
 from app.services.interaction.service import cancellation_context, run_interaction
-from app.api.schemas.answers import AnswerRequest
+from app.api.schemas.answers import AnswerRequest, PimToPsmRequest, PimToPsmAnswerRequest
 from app.models.uvl import UVL
+from app.services.interaction.questions import generate_pim_to_psm_questions 
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/interactions", tags=["interactions"])
@@ -117,3 +119,60 @@ async def save_user_answers(request: AnswerRequest):
 
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@router.post("/report-pim-to-psm", response_model=InteractionReport)
+async def get_pim_to_psm_report(request: PimToPsmRequest):
+    """Genera el reporte PIM→PSM con análisis y preguntas guiadas."""
+    uvl_path = Path(request.path)
+    if not uvl_path.exists():
+        raise HTTPException(status_code=404, detail=f"No se encontró UVL en {uvl_path}")
+
+    try:
+        # 1. Leer contenido UVL
+        output_uvl_content = uvl_path.read_text(encoding="utf-8")
+        payload = InteractionInput(
+            output_uvl_path=str(uvl_path),
+            output_uvl_content=output_uvl_content,
+        )
+
+        # 2. Ejecutar analizador PSM
+        from app.services.interaction.service import run_pim_to_psm_interaction
+        report = run_pim_to_psm_interaction(payload)
+
+        # 3. Devolver análisis + preguntas
+        return report
+
+    except Exception as exc:
+        logger.exception("Error generando reporte PIM→PSM")
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/answers-pim-to-psm")
+async def apply_pim_to_psm_answers(request: PimToPsmAnswerRequest):
+    """
+    Stub endpoint: por ahora no aplica respuestas al PSM.
+    Solo confirma que las respuestas fueron recibidas.
+    """
+    try:
+        logger.info("Recibidas respuestas PIM→PSM: %s", request.answers)
+        if not isinstance(request.answers, dict):
+            logger.error("Formato inválido de respuestas: %s", request.answers)
+            return {
+                "detail": "Error: formato inválido en respuestas",
+                "answers": None,
+                "psm_final": None
+            }
+
+        return {
+            "detail": "Respuestas recibidas correctamente",
+            "answers": request.answers,
+            "psm_final": None
+        }
+
+    except Exception as e:
+        logger.exception("Error al procesar respuestas")
+        return {
+            "detail": f"Error interno: {str(e)}",
+            "answers": None,
+            "psm_final": None
+        }

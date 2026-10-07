@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { sendAnswers } from "../../../services/questions"
+import { sendAnswers, sendPimToPsmAnswers } from "../../../services/questions"
 
 /**
  * Displays the prepared questions generated after the CIM-to-PIM step.
@@ -11,7 +11,7 @@ import { sendAnswers } from "../../../services/questions"
  * This component is used by the main application when guided interaction is available so
  * the user can review the generated questions in a dedicated modal view.
  */
-const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath }) => {
+const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath, interactionType }) => {
   const [answers, setAnswers] = useState({})
   const [submitStatus, setSubmitStatus] = useState("idle")
   const [submitError, setSubmitError] = useState("")
@@ -26,21 +26,39 @@ const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath 
     setAnswers((currentAnswers) => ({ ...currentAnswers, [questionId]: option }))
   }
 
-  const handleSubmit = async () => {
-    if (!uvlPath || submitStatus === "loading") return
+ const handleSubmit = async () => {
+    if (!uvlPath || submitStatus === "loading") return;
 
-    setSubmitStatus("loading")
-    setSubmitError("")
+    setSubmitStatus("loading");
+    setSubmitError("");
 
     try {
-      const result = await sendAnswers(uvlPath, answers)
-      setSubmitStatus("idle")
-      onContinue(result)
+      let result;
+      if (interactionType === "PIM→PSM") {
+        result = await sendPimToPsmAnswers(uvlPath, answers);
+      } else {
+        result = await sendAnswers(uvlPath, answers);
+      }
+
+      // Si el backend devuelve un mensaje de error en el JSON
+      if (result?.detail && typeof result.detail === "string" && result.detail.toLowerCase().startsWith("error")) {
+        throw new Error(result.detail);
+      }
+
+      setSubmitStatus("idle");
+
+      // Le pasamos result e interactionType a la función de callback
+      if (typeof onContinue === "function") {
+        onContinue(result, interactionType);
+      }
     } catch (error) {
-      setSubmitStatus("error")
-      setSubmitError(error.response?.data?.detail || "Unable to submit answers. Please try again.")
+      console.error("Error en submit de preguntas:", error);
+      setSubmitStatus("error");
+      setSubmitError(
+        error.response?.data?.detail || error.message || "Unable to submit answers. Please try again."
+      );
     }
-  }
+  };
 
   if (!isOpen) return null
 
@@ -65,12 +83,12 @@ const GuidedQuestionsModal = ({ isOpen, onClose, questions, onContinue, uvlPath 
             <path d="M7 17h3l2-4V7H7v6h2l-2 4zm7 0h3l2-4V7h-5v6h2l-2 4z" />
           </svg>
 
-          <h2 className="text-xl font-bold text-white">Guided Interaction: CIM to PIM</h2>
+          <h2 className="text-xl font-bold text-white">Guided Interaction: {interactionType}</h2>
         </div>
 
         <div className="bg-gray-900 p-4 mb-4 -mx-6 max-h-[420px] overflow-y-auto">
           <p className="text-gray-300">
-            Review the questions generated to inspect the semi-automatic transformation from <span className="font-bold text-blue-200">CIM to PIM</span>
+            Review the questions generated to inspect the semi-automatic transformation from <span className="font-bold text-blue-200">{interactionType}</span>
           </p>
 
           {questions.length === 0 ? (

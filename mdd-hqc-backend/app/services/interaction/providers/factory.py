@@ -6,6 +6,7 @@ from .base import LLMProvider
 from .lmstudio import LMStudioProvider
 from .ollama import OllamaProvider
 from .openrouter import OpenRouterProvider
+from .openai import OpenAIProvider
 
 
 def get_provider(provider_name: str | None = None) -> LLMProvider:
@@ -18,4 +19,6 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
         return LMStudioProvider()
     if selected_provider == "openrouter":
         return OpenRouterProvider()
+    if selected_provider in ["openai", "gpt"]:
+        return OpenAIProvider()
     raise ValueError(f"Unknown LLM provider: {selected_provider}")

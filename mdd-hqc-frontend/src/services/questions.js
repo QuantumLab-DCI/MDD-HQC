@@ -54,3 +54,23 @@ export const confirmUvl = async (path) => {
     throw error;
   }
 };
+
+export const fetchPimToPsmQuestions = async (path, options = {}) => {
+  try {
+    const response = await axios.post(`${API_BASE}/report-pim-to-psm`, { path }, { signal: options.signal });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching PIM to PSM questions:", error);
+    throw error;
+  }
+};
+
+export const sendPimToPsmAnswers = async (path, answers) => {
+  try{
+    const response = await axios.post(`${API_BASE}/answers-pim-to-psm`, {path, answers });
+    return response.data;
+  } catch (error){
+    console.error("Error sending PIM to PSM answers: ", error);
+    throw error;
+  }
+};
