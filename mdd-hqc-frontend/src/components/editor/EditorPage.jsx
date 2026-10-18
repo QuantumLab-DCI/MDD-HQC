@@ -38,14 +38,14 @@ export const EditorPage = () => {
   const [isCimPimModalOpen, setIsCimPimModalOpen] = useState(false)
   const [cimPimQuestions, setCimPimQuestions] = useState([])
   const [cimPimStatus, setCimPimStatus] = useState("idle")
-  const [cimPimError, setCimPimError] = useState("")
+  const [, setCimPimError] = useState("")
   const [isPimPsmModalOpen, setIsPimPsmModalOpen] = useState(false)
   const [pimPsmQuestions, setPimPsmQuestions] = useState([])
   const [pimPsmStatus, setPimPsmStatus] = useState("idle")
   const [pimPsmError, setPimPsmError] = useState("")
-  const [analysis, setAnalysis] = useState({})
-  const [questionsStatus, setQuestionsStatus] = useState("idle")
-  const [questionsError, setQuestionsError] = useState("")
+  const [, setAnalysis] = useState({})
+  const [questionsStatus] = useState("idle")
+  const [questionsError] = useState("")
   const [interactionType, setInteractionType] = useState("CIM→PIM")
   const [isModelIntegrationModalOpen, setIsModelIntegrationModalOpen] = useState(false)
 
@@ -236,7 +236,7 @@ export const EditorPage = () => {
         questionsAbortRef.current = null
       }
     }
-  }, [isAiEnabled, questionsStatus])
+  }, [isAiEnabled, cimPimStatus])
 
   const loadPimToPsmQuestions = useCallback(async (uvlPath, { openModal = false } = {}) => {
   if (!uvlPath || !isAiEnabled) return
@@ -630,6 +630,7 @@ export const EditorPage = () => {
         <ModelIntegrationDiffModal
           isOpen={interactionType === "CIM→PIM" && isModelIntegrationModalOpen}
           onClose={() => setIsModelIntegrationModalOpen(false)}
+          finalUvlModel={uvlContent}
         />
       </main>
     </div>

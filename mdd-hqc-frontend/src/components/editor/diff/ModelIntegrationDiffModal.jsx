@@ -37,46 +37,12 @@ const proposedChanges = `features
         provider "Python + D-Wave Ocean SDK"
       }`
 
-const finalUvlModel = `features
-  Functionality
-    mandatory
-      actor: ChileEsPres
-      PerformDelivery
-        {
-          kind "goal"
-          fastDelivery "true"
-          optimalResourceUsage "true"
-        }
 
-      actor: Route Planning System
-      GenerateRoutePlan
-        {
-          kind "task"
-        }
-
-      mandatory
-        actor: Route Planning System
-        NationalMap
-          {
-            kind "resource"
-          }
-
-      actor: Route Planning System
-      VehicleFleet
-        {
-          kind "resource"
-        }
-
-      actor: Route Planning System
-      CurrentDemand
-        {
-          kind "resource"
-        }`
 
 /**
  * Visual scaffold for the future model-integration workflow.
  */
-const ModelIntegrationDiffModal = ({ isOpen, onClose }) => {
+const ModelIntegrationDiffModal = ({ isOpen, onClose, finalUvlModel = "" }) => {
   if (!isOpen) return null
 
   return (
@@ -185,7 +151,7 @@ const ModelIntegrationDiffModal = ({ isOpen, onClose }) => {
 
             <div className="flex min-h-0 flex-1 bg-ctp-mantle p-4">
               <pre className="themed-scrollbar h-full min-h-0 w-full overflow-auto whitespace-pre-wrap rounded-lg bg-ctp-base p-4 font-mono text-[13px] leading-5 text-ctp-text">
-                {finalUvlModel}
+                {finalUvlModel || "// Cargando Modelo UVL..."}
               </pre>
             </div>
           </section>
