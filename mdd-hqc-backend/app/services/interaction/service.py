@@ -3,7 +3,7 @@
 import logging
 from contextvars import ContextVar
 from threading import Event
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from app.services.interaction.contracts import InteractionInput, InteractionReport
 from app.models.uvl import UVL
@@ -67,15 +67,63 @@ def run_pim_to_psm_interaction(payload: InteractionInput, provider: Optional[str
         provider=provider or "default"
     )
 
-def apply_user_answers(uvl: UVL, answers: Dict) -> str:
-    """Placeholder kept for future UVL updates after the guided interaction step.
+def apply_user_answers(uvl: UVL, answers: Dict[str, Any]) -> Dict[str, Any]:
+    proposals: List[Dict[str, str]] = []
 
-    Applying user answers back into the generated UVL is intentionally left out of the
-    current phase, where the interaction module only analyzes artifacts.
-    """
-    raise NotImplementedError(
-        "Applying user answers back into the UVL is not implemented in this phase."
-    )
+    if isinstance(answers, dict):
+        for question_id, selected_option in answers.items():
+            # 1. Ignorar si la clave no es una pregunta (ej. si vienen claves como 'path', 'detail', 'uvl_content')
+            key_str = str(question_id).lower()
+            if key_str in ("path", "detail", "uvl_content", "output_uvl") or not selected_option:
+                continue
+
+            selected_text = str(selected_option).strip()
+
+            # 2. Ignorar si el valor es un diccionario, un path, o código UVL completo
+            if (
+                not selected_text 
+                or selected_text.lower() == "none"
+                or selected_text.startswith("/") 
+                or selected_text.startswith("{") 
+                or "features" in selected_text 
+                or "mandatory" in selected_text
+            ):
+                continue
+
+            # 3. Sanitización limpia del nombre de la característica UVL
+            feature_name = (
+                selected_text.replace(" ", "")
+                .replace("-", "_")
+                .replace("+", "Plus")
+                .replace("#", "Sharp")
+            )
+
+            # Snippet identado sin duplicar la palabra 'mandatory'
+            uvl_snippet = (
+                f"  {feature_name}\n"
+                f"    {{\n"
+                f'      kind "implementation"\n'
+                f'      provider "{selected_text}"\n'
+                f"    }}"
+            )
+
+            proposals.append({
+                "id": f"prop_{question_id}",
+                "title": feature_name,
+                "snippet": uvl_snippet,
+                "provider": selected_text,
+            })
+
+    base_uvl_content = ""
+    if hasattr(uvl, "create_file_content"):
+        base_uvl_content = uvl.create_file_content()
+    elif hasattr(uvl, "FILE_NAME") and uvl.FILE_NAME.exists():
+        base_uvl_content = uvl.FILE_NAME.read_text(encoding="utf-8")
+
+    return {
+        "final_uvl": base_uvl_content,
+        "proposals": proposals
+    }
 
 
 def apply_psm_answers(path: str, answers: dict) -> dict:

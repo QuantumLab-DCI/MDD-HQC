@@ -15,7 +15,7 @@ import GuidedQuestionsModal from "./questions/GuidedQuestionsModal"
 import QuestionsModal from "./questions/QuestionsModal"
 import ModelIntegrationDiffModal from "./diff/ModelIntegrationDiffModal"
 import { transformCimToPim, transformPimToPsm } from "../../services/transformations"
-import { fetchQuestions, fetchPimToPsmQuestions } from "../../services/questions"
+import { fetchQuestions, fetchPimToPsmQuestions, sendAnswers } from "../../services/questions"
 
 
 /**
@@ -48,6 +48,7 @@ export const EditorPage = () => {
   const [questionsError] = useState("")
   const [interactionType, setInteractionType] = useState("CIM→PIM")
   const [isModelIntegrationModalOpen, setIsModelIntegrationModalOpen] = useState(false)
+  const [proposals, setProposals] = useState([])
 
   /**
    * Clears the guided-interaction state kept after UVL generation.
@@ -387,15 +388,27 @@ export const EditorPage = () => {
   /**
    * Closes the guided-questions modal after the user continues.
    */
-  const handleContinueWithQuestions = (result, type) => {
+  const handleContinueWithQuestions = async (answers, type) => {
   // Evaluamos el 'type' que nos envía explícitamente el GuidedQuestionsModal
   const currentType = type || interactionType;
 
-  if (currentType === "CIM→PIM") {
-    setIsCimPimModalOpen(false);
-    setIsModelIntegrationModalOpen(true);
+ if (currentType === "CIM→PIM") {
+    try {
+      const response = await sendAnswers(generatedUvlPath, answers);
+
+      setProposals(response.proposals || []);
+
+      if (response.uvl_content) {
+        setUvlContent(response.uvl_content);
+      }
+
+      setIsCimPimModalOpen(false);
+      setIsModelIntegrationModalOpen(true);
+    } catch (error) {
+      console.error("Error al procesar respuestas de interacción:", error);
+    }
   } else if (currentType === "PIM→PSM") {
-    setIsPimPsmModalOpen(false); // Cierra el modal de PIM->PSM
+    setIsPimPsmModalOpen(false);
   }
 };
 
@@ -631,6 +644,11 @@ export const EditorPage = () => {
           isOpen={interactionType === "CIM→PIM" && isModelIntegrationModalOpen}
           onClose={() => setIsModelIntegrationModalOpen(false)}
           finalUvlModel={uvlContent}
+          proposals={proposals}
+          onSaveIntegratedModel={(updatedUvl) => {
+            setUvlContent(updatedUvl)
+            setIsModelIntegrationModalOpen(false)
+          }}
         />
       </main>
     </div>
