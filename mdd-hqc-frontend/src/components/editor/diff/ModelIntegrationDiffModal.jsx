@@ -39,7 +39,7 @@ const ModelIntegrationDiffModal = ({
   const updatedRightUvl = useMemo(() => {
   let base = finalUvlModel
 
-  // Filtramos los snippets de las propuestas aceptadas
+  // Unimos ÚNICAMENTE los snippets de las tarjetas cuyo botón fue 'accepted'
   const acceptedSnippets = proposals
     .filter((prop) => decisions[prop.id] === "accepted")
     .map((prop) => prop.snippet)
@@ -47,12 +47,10 @@ const ModelIntegrationDiffModal = ({
 
   if (!acceptedSnippets) return base
 
-  // Si el modelo base ya tiene un bloque 'mandatory', inyectamos las propuestas dentro
   if (base.includes("mandatory")) {
     return base.replace("mandatory", `mandatory\n${acceptedSnippets}`)
   }
 
-  // Si no existe, lo agregamos como un nuevo bloque mandatory
   return `${base}\n\nmandatory\n${acceptedSnippets}`
 }, [finalUvlModel, proposals, decisions])
 

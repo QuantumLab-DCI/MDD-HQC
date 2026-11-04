@@ -70,61 +70,86 @@ def run_pim_to_psm_interaction(payload: InteractionInput, provider: Optional[str
 def apply_user_answers(uvl: UVL, answers: Dict[str, Any]) -> Dict[str, Any]:
     proposals: List[Dict[str, str]] = []
 
+    # Lista de claves reservadas del sistema a ignorar OBLIGATORIAMENTE
+    SYSTEM_KEYS = {
+        "detail",
+        "answers",
+        "output_uvl",
+        "uvl_content",
+        "path",
+        "missing",
+        "questions",
+    }
+
     if isinstance(answers, dict):
-        for question_id, selected_option in answers.items():
-            # 1. Ignorar si la clave no es una pregunta (ej. si vienen claves como 'path', 'detail', 'uvl_content')
-            key_str = str(question_id).lower()
-            if key_str in ("path", "detail", "uvl_content", "output_uvl") or not selected_option:
+        # Si answers viene anidado como {"answers": {...}}, lo extraemos
+        actual_answers = answers.get("answers", answers) if isinstance(answers.get("answers"), dict) else answers
+
+        for question_id, selected_option in actual_answers.items():
+            key_str = str(question_id).strip()
+            
+            # 1. Ignorar si es una clave del sistema (como 'detail')
+            if key_str.lower() in SYSTEM_KEYS or not selected_option:
                 continue
 
             selected_text = str(selected_option).strip()
 
-            # 2. Ignorar si el valor es un diccionario, un path, o código UVL completo
+            # 2. Ignorar valores vacíos, paths, JSONs o mensajes del sistema
             if (
-                not selected_text 
-                or selected_text.lower() == "none"
-                or selected_text.startswith("/") 
-                or selected_text.startswith("{") 
-                or "features" in selected_text 
-                or "mandatory" in selected_text
+                not selected_text
+                or selected_text.lower() in ("none", "null")
+                or selected_text.startswith("/")
+                or selected_text.startswith("{")
+                or selected_text.startswith("[")
+                or "features" in selected_text
+                or "Respuestas recibidas" in selected_text
             ):
                 continue
 
-            # 3. Sanitización limpia del nombre de la característica UVL
-            feature_name = (
+            # 3. Formatear el Título (ej. "q_programming" -> "Programming")
+            raw_title = key_str.replace("q_", "")
+            card_title = raw_title[0].upper() + raw_title[1:] if raw_title else key_str
+
+            # 4. Sanitizar la opción seleccionada para el snippet UVL
+            feature_option = (
                 selected_text.replace(" ", "")
                 .replace("-", "_")
                 .replace("+", "Plus")
                 .replace("#", "Sharp")
             )
 
-            # Snippet identado sin duplicar la palabra 'mandatory'
+            # 5. Construir snippet individual identado
             uvl_snippet = (
-                f"  {feature_name}\n"
-                f"    {{\n"
-                f'      kind "implementation"\n'
-                f'      provider "{selected_text}"\n'
-                f"    }}"
+                f"  {card_title}\n"
+                f"    mandatory\n"
+                f"      {feature_option}\n"
+                f"        {{\n"
+                f'          kind "implementation"\n'
+                f'          provider "{selected_text}"\n'
+                f"        }}"
             )
 
+            # Agregamos cada tarjeta individual a la lista
             proposals.append({
-                "id": f"prop_{question_id}",
-                "title": feature_name,
-                "snippet": uvl_snippet,
-                "provider": selected_text,
+                "id": f"prop_{key_str}",
+                "title": card_title,       # "Programming", "Integration_model", etc.
+                "snippet": uvl_snippet,    # Código UVL individual
+                "provider": selected_text, # "Qiskit", "API REST", etc.
             })
 
     base_uvl_content = ""
-    if hasattr(uvl, "create_file_content"):
-        base_uvl_content = uvl.create_file_content()
-    elif hasattr(uvl, "FILE_NAME") and uvl.FILE_NAME.exists():
-        base_uvl_content = uvl.FILE_NAME.read_text(encoding="utf-8")
+    try:
+        if hasattr(uvl, "create_file_content"):
+            base_uvl_content = uvl.create_file_content()
+        elif hasattr(uvl, "FILE_NAME") and getattr(uvl, "FILE_NAME", None) and uvl.FILE_NAME.exists():
+            base_uvl_content = uvl.FILE_NAME.read_text(encoding="utf-8")
+    except Exception:
+        base_uvl_content = ""
 
     return {
         "final_uvl": base_uvl_content,
         "proposals": proposals
     }
-
 
 def apply_psm_answers(path: str, answers: dict) -> dict:
     """Mock temporal para la fase PIM->PSM que simula la recepción exitosa de respuestas."""
