@@ -11,7 +11,7 @@ from app.api.schemas.path import PathRequest
 from app.services.interaction.contracts import InteractionInput, InteractionReport
 from app.services.artifacts.uvl_service import UvlService
 from app.services.interaction.security import security_shield
-from app.services.interaction.service import cancellation_context, run_interaction
+from app.services.interaction.service import cancellation_context, run_interaction, apply_user_answers
 from app.api.schemas.answers import AnswerRequest, PimToPsmRequest, PimToPsmAnswerRequest
 from app.models.uvl import UVL
 from app.services.interaction.questions import generate_pim_to_psm_questions 
@@ -110,11 +110,17 @@ async def save_user_answers(request: AnswerRequest):
         raise HTTPException(status_code=404, detail=f"No se encontró UVL en {uvl_path}")
 
     try:
+
+        uvl_instance = UVL()
+
+        result = apply_user_answers(uvl_instance, request.answers)
+
         return {
             "detail": "Respuestas recibidas correctamente",
             "answers": request.answers,
             "output_uvl": str(uvl_path),
-            "uvl_content": uvl_path.read_text(encoding="utf-8"),
+            "uvl_content": result.get("final_uvl") or uvl_path.read_text(encoding="utf-8"),
+            "proposals": result.get("proposals", [])
         }
 
     except Exception as exc:

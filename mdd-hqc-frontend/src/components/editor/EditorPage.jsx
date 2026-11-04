@@ -15,7 +15,7 @@ import GuidedQuestionsModal from "./questions/GuidedQuestionsModal"
 import QuestionsModal from "./questions/QuestionsModal"
 import ModelIntegrationDiffModal from "./diff/ModelIntegrationDiffModal"
 import { transformCimToPim, transformPimToPsm } from "../../services/transformations"
-import { fetchQuestions, fetchPimToPsmQuestions } from "../../services/questions"
+import { fetchQuestions, fetchPimToPsmQuestions, sendAnswers } from "../../services/questions"
 
 
 /**
@@ -38,16 +38,17 @@ export const EditorPage = () => {
   const [isCimPimModalOpen, setIsCimPimModalOpen] = useState(false)
   const [cimPimQuestions, setCimPimQuestions] = useState([])
   const [cimPimStatus, setCimPimStatus] = useState("idle")
-  const [cimPimError, setCimPimError] = useState("")
+  const [, setCimPimError] = useState("")
   const [isPimPsmModalOpen, setIsPimPsmModalOpen] = useState(false)
   const [pimPsmQuestions, setPimPsmQuestions] = useState([])
   const [pimPsmStatus, setPimPsmStatus] = useState("idle")
   const [pimPsmError, setPimPsmError] = useState("")
-  const [analysis, setAnalysis] = useState({})
-  const [questionsStatus, setQuestionsStatus] = useState("idle")
-  const [questionsError, setQuestionsError] = useState("")
+  const [, setAnalysis] = useState({})
+  const [questionsStatus] = useState("idle")
+  const [questionsError] = useState("")
   const [interactionType, setInteractionType] = useState("CIM→PIM")
   const [isModelIntegrationModalOpen, setIsModelIntegrationModalOpen] = useState(false)
+  const [proposals, setProposals] = useState([])
 
   /**
    * Clears the guided-interaction state kept after UVL generation.
@@ -236,7 +237,7 @@ export const EditorPage = () => {
         questionsAbortRef.current = null
       }
     }
-  }, [isAiEnabled, questionsStatus])
+  }, [isAiEnabled, cimPimStatus])
 
   const loadPimToPsmQuestions = useCallback(async (uvlPath, { openModal = false } = {}) => {
   if (!uvlPath || !isAiEnabled) return
@@ -387,15 +388,27 @@ export const EditorPage = () => {
   /**
    * Closes the guided-questions modal after the user continues.
    */
-  const handleContinueWithQuestions = (result, type) => {
+  const handleContinueWithQuestions = async (answers, type) => {
   // Evaluamos el 'type' que nos envía explícitamente el GuidedQuestionsModal
   const currentType = type || interactionType;
 
-  if (currentType === "CIM→PIM") {
-    setIsCimPimModalOpen(false);
-    setIsModelIntegrationModalOpen(true);
+ if (currentType === "CIM→PIM") {
+    try {
+      const response = await sendAnswers(generatedUvlPath, answers);
+
+      setProposals(response.proposals || []);
+
+      if (response.uvl_content) {
+        setUvlContent(response.uvl_content);
+      }
+
+      setIsCimPimModalOpen(false);
+      setIsModelIntegrationModalOpen(true);
+    } catch (error) {
+      console.error("Error al procesar respuestas de interacción:", error);
+    }
   } else if (currentType === "PIM→PSM") {
-    setIsPimPsmModalOpen(false); // Cierra el modal de PIM->PSM
+    setIsPimPsmModalOpen(false);
   }
 };
 
@@ -630,6 +643,12 @@ export const EditorPage = () => {
         <ModelIntegrationDiffModal
           isOpen={interactionType === "CIM→PIM" && isModelIntegrationModalOpen}
           onClose={() => setIsModelIntegrationModalOpen(false)}
+          finalUvlModel={uvlContent}
+          proposals={proposals}
+          onSaveIntegratedModel={(updatedUvl) => {
+            setUvlContent(updatedUvl)
+            setIsModelIntegrationModalOpen(false)
+          }}
         />
       </main>
     </div>
