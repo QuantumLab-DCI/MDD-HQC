@@ -415,28 +415,34 @@ export const EditorPage = () => {
   /**
    * Renders the interaction button displayed between editor stages.
    */
-  const renderInteractionButton = ({ interactive = false, interactionType }) => {
-    const isLoadingQuestions = interactive &&
-    ((interactionType === "CIM→PIM" && cimPimStatus === "loading") ||
-     (interactionType === "PIM→PSM" && pimPsmStatus === "loading"))
-    const isDisabled = interactive ? !generatedUvlPath || !isAiEnabled : true
-    const handleClick = interactive
-    ? () => {
-        setInteractionType(interactionType)
+ const renderInteractionButton = ({ interactive = false, interactionType }) => {
+    const isLoadingQuestions =
+      interactive &&
+      ((interactionType === "CIM→PIM" && cimPimStatus === "loading") ||
+        (interactionType === "PIM→PSM" && pimPsmStatus === "loading"))
 
-        if (interactionType === "CIM→PIM") {
-          setIsCimPimModalOpen(true)
-          void loadQuestionsForUvl(generatedUvlPath, { openModal: true })
-          setIsModelIntegrationModalOpen(true)   
-        }
+    const hasRequiredArtifact =
+      interactionType === "CIM→PIM"
+        ? Boolean(generatedUvlPath)
+        : Boolean(pumlContent)
 
-        if (interactionType === "PIM→PSM") {
-          setIsPimPsmModalOpen(true)
-          void loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
-          
+    const isDisabled = !interactive || !isAiEnabled || !hasRequiredArtifact
+
+    const handleClick = !isDisabled
+      ? () => {
+          setInteractionType(interactionType)
+
+          if (interactionType === "CIM→PIM") {
+            setIsCimPimModalOpen(true)
+            void loadQuestionsForUvl(generatedUvlPath, { openModal: true })
+          }
+
+          if (interactionType === "PIM→PSM") {
+            setIsPimPsmModalOpen(true)
+            void loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
+          }
         }
-      }
-    : undefined
+      : undefined
 
     return (
       <button
@@ -446,11 +452,11 @@ export const EditorPage = () => {
         className={`min-w-[76px] rounded-lg border px-3 py-2 transition-all ${
           !interactive
             ? "cursor-not-allowed border-ctp-surface1 bg-ctp-surface0 text-[#a0988c] opacity-60"
-            : !generatedUvlPath || !isAiEnabled
-            ? "cursor-not-allowed border-ctp-surface1 bg-ctp-surface0 text-[#a0988c]"
-            : isLoadingQuestions
-              ? "border-ctp-blue/40 bg-ctp-blue/20 text-ctp-blue shadow-lg shadow-ctp-blue/10"
-              : "border-gray-600 bg-gray-700 text-white hover:bg-gray-600"
+            : isDisabled
+              ? "cursor-not-allowed border-ctp-surface1 bg-ctp-surface0 text-[#a0988c]"
+              : isLoadingQuestions
+                ? "border-ctp-blue/40 bg-ctp-blue/20 text-ctp-blue shadow-lg shadow-ctp-blue/10"
+                : "border-gray-600 bg-gray-700 text-white hover:bg-gray-600"
         }`}
       >
         <span className="mb-2 flex items-center justify-center">
@@ -475,7 +481,9 @@ export const EditorPage = () => {
             </svg>
           )}
         </span>
-        <div className="text-sm tracking-wide">{isLoadingQuestions ? "PREPARING" : "INTERACT"}</div>
+        <div className="text-sm tracking-wide">
+          {isLoadingQuestions ? "PREPARING" : "INTERACT"}
+        </div>
       </button>
     )
   }
