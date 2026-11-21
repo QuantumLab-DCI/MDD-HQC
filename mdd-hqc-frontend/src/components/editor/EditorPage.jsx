@@ -15,7 +15,7 @@ import GuidedQuestionsModal from "./questions/GuidedQuestionsModal"
 import QuestionsModal from "./questions/QuestionsModal"
 import ModelIntegrationDiffModal from "./diff/ModelIntegrationDiffModal"
 import { transformCimToPim, transformPimToPsm } from "../../services/transformations"
-import { fetchQuestions, fetchPimToPsmQuestions } from "../../services/questions"
+import { fetchQuestions, fetchPimToPsmQuestions, sendAnswers } from "../../services/questions"
 
 
 /**
@@ -38,16 +38,17 @@ export const EditorPage = () => {
   const [isCimPimModalOpen, setIsCimPimModalOpen] = useState(false)
   const [cimPimQuestions, setCimPimQuestions] = useState([])
   const [cimPimStatus, setCimPimStatus] = useState("idle")
-  const [cimPimError, setCimPimError] = useState("")
+  const [, setCimPimError] = useState("")
   const [isPimPsmModalOpen, setIsPimPsmModalOpen] = useState(false)
   const [pimPsmQuestions, setPimPsmQuestions] = useState([])
   const [pimPsmStatus, setPimPsmStatus] = useState("idle")
   const [pimPsmError, setPimPsmError] = useState("")
-  const [analysis, setAnalysis] = useState({})
-  const [questionsStatus, setQuestionsStatus] = useState("idle")
-  const [questionsError, setQuestionsError] = useState("")
+  const [, setAnalysis] = useState({})
+  const [questionsStatus] = useState("idle")
+  const [questionsError] = useState("")
   const [interactionType, setInteractionType] = useState("CIM→PIM")
   const [isModelIntegrationModalOpen, setIsModelIntegrationModalOpen] = useState(false)
+  const [proposals, setProposals] = useState([])
 
   /**
    * Clears the guided-interaction state kept after UVL generation.
@@ -236,7 +237,7 @@ export const EditorPage = () => {
         questionsAbortRef.current = null
       }
     }
-  }, [isAiEnabled, questionsStatus])
+  }, [isAiEnabled, cimPimStatus])
 
   const loadPimToPsmQuestions = useCallback(async (uvlPath, { openModal = false } = {}) => {
   if (!uvlPath || !isAiEnabled) return
@@ -387,43 +388,61 @@ export const EditorPage = () => {
   /**
    * Closes the guided-questions modal after the user continues.
    */
-  const handleContinueWithQuestions = (result, type) => {
+  const handleContinueWithQuestions = async (answers, type) => {
   // Evaluamos el 'type' que nos envía explícitamente el GuidedQuestionsModal
   const currentType = type || interactionType;
 
-  if (currentType === "CIM→PIM") {
-    setIsCimPimModalOpen(false);
-    setIsModelIntegrationModalOpen(true);
+ if (currentType === "CIM→PIM") {
+    try {
+      const response = await sendAnswers(generatedUvlPath, answers);
+
+      setProposals(response.proposals || []);
+
+      if (response.uvl_content) {
+        setUvlContent(response.uvl_content);
+      }
+
+      setIsCimPimModalOpen(false);
+      setIsModelIntegrationModalOpen(true);
+    } catch (error) {
+      console.error("Error al procesar respuestas de interacción:", error);
+    }
   } else if (currentType === "PIM→PSM") {
-    setIsPimPsmModalOpen(false); // Cierra el modal de PIM->PSM
+    setIsPimPsmModalOpen(false);
   }
 };
 
   /**
    * Renders the interaction button displayed between editor stages.
    */
-  const renderInteractionButton = ({ interactive = false, interactionType }) => {
-    const isLoadingQuestions = interactive &&
-    ((interactionType === "CIM→PIM" && cimPimStatus === "loading") ||
-     (interactionType === "PIM→PSM" && pimPsmStatus === "loading"))
-    const isDisabled = interactive ? !generatedUvlPath || !isAiEnabled : true
-    const handleClick = interactive
-    ? () => {
-        setInteractionType(interactionType)
+ const renderInteractionButton = ({ interactive = false, interactionType }) => {
+    const isLoadingQuestions =
+      interactive &&
+      ((interactionType === "CIM→PIM" && cimPimStatus === "loading") ||
+        (interactionType === "PIM→PSM" && pimPsmStatus === "loading"))
 
-        if (interactionType === "CIM→PIM") {
-          setIsCimPimModalOpen(true)
-          void loadQuestionsForUvl(generatedUvlPath, { openModal: true })
-          setIsModelIntegrationModalOpen(true)   
-        }
+    const hasRequiredArtifact =
+      interactionType === "CIM→PIM"
+        ? Boolean(generatedUvlPath)
+        : Boolean(pumlContent)
 
-        if (interactionType === "PIM→PSM") {
-          setIsPimPsmModalOpen(true)
-          void loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
-          
+    const isDisabled = !interactive || !isAiEnabled || !hasRequiredArtifact
+
+    const handleClick = !isDisabled
+      ? () => {
+          setInteractionType(interactionType)
+
+          if (interactionType === "CIM→PIM") {
+            setIsCimPimModalOpen(true)
+            void loadQuestionsForUvl(generatedUvlPath, { openModal: true })
+          }
+
+          if (interactionType === "PIM→PSM") {
+            setIsPimPsmModalOpen(true)
+            void loadPimToPsmQuestions(generatedUvlPath, { openModal: true })
+          }
         }
-      }
-    : undefined
+      : undefined
 
     return (
       <button
@@ -433,11 +452,11 @@ export const EditorPage = () => {
         className={`min-w-[76px] rounded-lg border px-3 py-2 transition-all ${
           !interactive
             ? "cursor-not-allowed border-ctp-surface1 bg-ctp-surface0 text-[#a0988c] opacity-60"
-            : !generatedUvlPath || !isAiEnabled
-            ? "cursor-not-allowed border-ctp-surface1 bg-ctp-surface0 text-[#a0988c]"
-            : isLoadingQuestions
-              ? "border-ctp-blue/40 bg-ctp-blue/20 text-ctp-blue shadow-lg shadow-ctp-blue/10"
-              : "border-gray-600 bg-gray-700 text-white hover:bg-gray-600"
+            : isDisabled
+              ? "cursor-not-allowed border-ctp-surface1 bg-ctp-surface0 text-[#a0988c]"
+              : isLoadingQuestions
+                ? "border-ctp-blue/40 bg-ctp-blue/20 text-ctp-blue shadow-lg shadow-ctp-blue/10"
+                : "border-gray-600 bg-gray-700 text-white hover:bg-gray-600"
         }`}
       >
         <span className="mb-2 flex items-center justify-center">
@@ -462,7 +481,9 @@ export const EditorPage = () => {
             </svg>
           )}
         </span>
-        <div className="text-sm tracking-wide">{isLoadingQuestions ? "PREPARING" : "INTERACT"}</div>
+        <div className="text-sm tracking-wide">
+          {isLoadingQuestions ? "PREPARING" : "INTERACT"}
+        </div>
       </button>
     )
   }
@@ -630,6 +651,12 @@ export const EditorPage = () => {
         <ModelIntegrationDiffModal
           isOpen={interactionType === "CIM→PIM" && isModelIntegrationModalOpen}
           onClose={() => setIsModelIntegrationModalOpen(false)}
+          finalUvlModel={uvlContent}
+          proposals={proposals}
+          onSaveIntegratedModel={(updatedUvl) => {
+            setUvlContent(updatedUvl)
+            setIsModelIntegrationModalOpen(false)
+          }}
         />
       </main>
     </div>

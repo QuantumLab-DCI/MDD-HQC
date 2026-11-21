@@ -1,73 +1,36 @@
 """Helpers that turn structured LLM findings into guided questions."""
-
-from typing import List
-from typing import Dict
-
+import logging
+from typing import List, Dict, Any
 from app.services.interaction.contracts import InteractionQuestion
 
+logger = logging.getLogger(__name__)
+
+def parse_llm_questions(raw_questions: List[Dict[str, Any]]) -> List[InteractionQuestion]:
+    """Converts raw JSON question objects from LLM into InteractionQuestion objects."""
+    questions: List[InteractionQuestion] = []
+    
+    for idx, q in enumerate(raw_questions):
+        questions.append(
+            InteractionQuestion(
+                id=q.get("id", f"q_{idx}"),
+                text=q.get("text", "Please provide design details for this missing component."),
+                scope=q.get("scope", "missing_information"),
+                options=q.get("options", [])
+            )
+        )
+    return questions
 
 def build_questions_from_missing(missing_blocks: List[str]) -> List[InteractionQuestion]:
-    """Builds the guided questions associated with one missing-group analysis result."""
-
-    questions: List[InteractionQuestion] = []
-    for missing in missing_blocks:
-        if missing == "Algorithm":
-            questions.append(
-                InteractionQuestion(
-                    id="q_algorithm",
-                    text="What type of algorithm will be used?",
-                    scope="missing_information",
-                    options=[
-                        "Greedy",
-                        "Dynamic Programming",
-                        "Quantum Search",
-                        "Other",
-                    ],
-                )
-            )
-        elif missing == "Programming":
-            questions.append(
-                InteractionQuestion(
-                    id="q_programming",
-                    text="Which framework/language will be used for development?",
-                    scope="missing_information",
-                    options=["Python", "Rust", "Q#", "Other"],
-                )
-            )
-        elif missing == "Integration_model":
-            questions.append(
-                InteractionQuestion(
-                    id="q_integration",
-                    text="Which integration model will be used? (SOA, middleware, etc.)",
-                    scope="missing_information",
-                    options=["Middleware/API", "Microservices", "Quantum-SOA"],
-                )
-            )
-        elif missing == "Quantum_HW_constraint":
-            questions.append(
-                InteractionQuestion(
-                    id="q_hw",
-                    text="Which hardware constraint is the most relevant?",
-                    scope="missing_information",
-                    options=[
-                        "Qubits",
-                        "Shots",
-                        "Circuit depth",
-                        "Error rate",
-                        "Connectivity",
-                        "Other",
-                    ],
-                )
-            )
-        elif missing == "Functionality":
-            questions.append(
-                InteractionQuestion(
-                    id="q_functionality",
-                    text="What main functionality should the system cover?",
-                    scope="missing_information",
-                )
-            )
-    return questions
+    """Fallback generator in case LLM output did not include dynamic questions."""
+    return [
+        InteractionQuestion(
+            id=f"q_{block.lower()}",
+            text=f"Which design decision or options should be configured for '{block}'?",
+            scope="missing_information",
+            options=[]
+        )
+        for block in missing_blocks
+    ]
 
 def generate_pim_to_psm_questions(analysis: Dict) -> List[InteractionQuestion]:
 
